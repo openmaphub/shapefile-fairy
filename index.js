@@ -37,7 +37,8 @@ var Invalid = {
   extractError: {code: 'EXTRACTERROR', msg: 'Error copying zipfile while unpacking!'}
 }
 
-module.exports = function(filepath, callback, options = {}) {
+module.exports = function(filepath, callback, options}) {
+  if(!options) options = {};
   filepath = path.resolve(filepath);
 
   var tmpdir = options.tmpdir ? options.tmpdir : os.tmpdir();
