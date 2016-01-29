@@ -5,6 +5,7 @@ var fs = require('fs');
 var mkdirp = require('mkdirp');
 var crypto = require('crypto');
 var queue = require('queue-async');
+var debug = require('debug')('shapefile-fairy');
 
 // File exts to look for according to http://en.wikipedia.org/wiki/Shapefile
 var exts = [
@@ -27,53 +28,65 @@ var exts = [
   '.index'
 ];
 
-var Invalid = {
+var ErrorCodes = {
   empty: {code: 'EMPTY', msg: 'ZIP file is empty'},
   failedToOpen: {code: 'OPENFAILED', msg: 'Could not open the ZIP file'},
-  didNotContainShp: {code: 'NOSHP',  msg: 'ZIP file did not contain a .shp file'}.
+  didNotContainShp: {code: 'NOSHP',  msg: 'ZIP file did not contain a .shp file'},
   multipleShpFiles: {code: 'MULTIPLESHP', msg: 'ZIP file contained more than one .shp file'},
   missingPart: {code: 'MISSINGPART', msg: 'ZIP file was missing a required part'},
-  requestedNotFound: {code: 'REQUESTEDNOTFOUND', msg: 'The requested Shapefile was not found in the ZIP file'}
+  requestedNotFound: {code: 'REQUESTEDNOTFOUND', msg: 'The requested Shapefile was not found in the ZIP file'},
   extractError: {code: 'EXTRACTERROR', msg: 'Error copying zipfile while unpacking!'}
 }
 
-module.exports = function(filepath, callback, options}) {
+module.exports = function(filepath, callback, options) {
   if(!options) options = {};
   filepath = path.resolve(filepath);
+
+  debug('starting');
 
   var tmpdir = options.tmpdir ? options.tmpdir : os.tmpdir();
   var extract = options.extract !== undefined ? options.extract : true
 
   fs.exists(filepath, function(exists) {
     if (!exists) return callback(new Error('No such file: ' + filepath));
-
+    debug('loaded file at: '+filepath);
     var zf;
     try { zf = new zipfile.ZipFile(filepath); }
-    catch (err) { return callback(invalid(Invalid.failedToOpen); }
+    catch (err) { return callback(invalid(ErrorCodes.failedToOpen)); }
 
     try {
       if(extract){
-        extractFiles(zf, getShapeFiles(zf), callback);
+        debug('process with extract');
+        extractFiles(zf, getShapeFiles(zf, options), callback, tmpdir);
       }else{
         //just process the shapefile to validate and get the list
-        callback(getShapeFiles(zf));
+        debug('not extracting, just analyzing the file');
+        callback(getShapeFiles(zf, options));
       }
 
     } catch(err) {
+      debug('Error: ' + err);
       return callback(err);
     }
   });
 };
 
 function invalid(error, value) {
-  return {valid: false, error: error, value: value};
+  debug('invalid: ' + error.msg);
+  return {
+    valid: false,
+    code: error.code,
+    error: error.msg,
+    value: value
+  };
 }
 
-function getShapeFiles(zf) {
-
+function getShapeFiles(zf, options) {
+  debug('getShapefiles');
   // Must contain some files
   if (zf.names.length === 0) {
-    return invalid(Invalid.empty);
+    debug('empty zip file');
+    return invalid(ErrorCodes.empty);
   }
 
   // Find .shp files
@@ -85,22 +98,27 @@ function getShapeFiles(zf) {
   var selectedShapeFileName = null;
   //if user specifies which shapefile to extract
   if (shapefileName.length > 1 && options.shapefileName) {
+    debug('more than one shapefile, with user requesting: ' + options.shapefileName);
     shapefileName.forEach(function(name){
       if(name == options.shapefileName){
         selectedShapeFileName = name;
       }
     });
     if(!selectedShapeFileName){
-       return invalid(Invalid.requestedNotFound, options.shapefileName));
+       return invalid(ErrorCodes.requestedNotFound, options.shapefileName);
     }
   } else if (shapefileName.length > 1) {
+    debug('more than one shapefile');
     // Must contain exactly one .shp file
-    return invalid(Invalid.multipleShpFiles, shapefileName);
+    return invalid(ErrorCodes.multipleShpFiles, shapefileName);
   } else if (shapefileName.length === 0) {
-    return invalid(Invalid.didNotContainShp);
+    debug('no shapefiles found');
+    return invalid(ErrorCodes.didNotContainShp);
   }else {
     selectedShapeFileName = shapefileName[0];
   }
+
+  debug('shapeFileName: ' + selectedShapeFileName);
 
   // Find the shapefile's basename and dir inside the zip
   var shapefileBase = path.basename(selectedShapeFileName, path.extname(selectedShapeFileName));
@@ -126,10 +144,12 @@ function getShapeFiles(zf) {
   });
 
   if (missingFiles.length) {
+    debug('missing required files')
     var s = missingFiles.length > 1 ? 's' : '';
-     return invalid(Invalid.missingPart, missingFiles.join(', '));
+     return invalid(ErrorCodes.missingPart, missingFiles.join(', '));
   }
 
+  debug('Shapefile Passed!');
   // Passed!
   return {valid: true, error: null, value: shapeFiles};
 }
@@ -141,7 +161,7 @@ function sanitizeName(filename) {
     .toLowerCase();
 }
 
-function extractFiles(zf, shapefiles, callback) {
+function extractFiles(zf, shapefiles, callback, tmpdir) {
   files = shapefiles.value;
   var dir = path.join(
     tmpdir,
@@ -153,7 +173,7 @@ function extractFiles(zf, shapefiles, callback) {
     var cleanName = sanitizeName(filename);
     var outfile = path.join(dir, cleanName);
     zf.copyFile(filename, outfile, function(err) {
-      if (err) return cb(invalid(Invalid.extractError));
+      if (err) return cb(invalid(ErrorCodes.extractError));
       cb();
     });
   }
@@ -169,7 +189,7 @@ function extractFiles(zf, shapefiles, callback) {
 
     q.await(function(err) {
       if (err) return callback(err);
-      callback({valid: true, error: '', value: path.join(dir, sanitizeName(files.shp)));
+      callback({valid: true, error: '', value: path.join(dir, sanitizeName(files.shp))});
     });
   });
 }
