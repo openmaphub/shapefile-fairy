@@ -24,7 +24,7 @@
     "mkdirp": "^0.5.0",
     "debug": "2.2.0",
     "queue-async": "^1.0.7",
-    "zipfile": "~0.5.10"
+    "zipfile": "mapbox/node-zipfile#5dbcd970564e22d67a766b91af87b8cbd515cfe6"
   },
   "devDependencies": {
     "tap": "^2.3.1",
