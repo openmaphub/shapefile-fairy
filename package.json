@@ -1,10 +1,10 @@
 {
-  "name": "shapefile-fairy",
-  "version": "0.3.4",
+  "name": "@mapbox/shapefile-fairy",
+  "version": "0.4.0",
   "description": "I put a zipfile under my pillow and the shapefile-fairy brought me shapefiles",
   "main": "index.js",
   "scripts": {
-    "test": "eslint index.js bin && tap --coverage test"
+    "test": "eslint index.js bin && tape test/index.js"
   },
   "bin": {
     "shapefile-fairy": "bin/shapefile-fairy.js"
@@ -27,8 +27,8 @@
     "zipfile": "mapbox/node-zipfile#5dbcd970564e22d67a766b91af87b8cbd515cfe6"
   },
   "devDependencies": {
-    "tap": "^2.3.1",
     "eslint": "~1.00.0",
-    "eslint-config-unstyled": "^1.1.0"
+    "eslint-config-unstyled": "^1.1.0",
+    "tape": "^4.6.3"
   }
 }
