@@ -33,7 +33,7 @@ module.exports = function(filepath, callback, options) {
 
 
   var tmpdir = options.tmpdir ? options.tmpdir : os.tmpdir();
-  var extract = options.extract !== undefined ? options.extract : true
+  var extract = options.extract !== undefined ? options.extract : true;
 
   fs.exists(filepath, function(exists) {
     if (!exists) return callback(new Error('No such file: ' + filepath));
@@ -140,8 +140,7 @@ function sanitizeName(filename) {
     .toLowerCase();
 }
 
-function extractFiles(zf, shapefiles, callback, tmpdir) {
-  var files = shapefiles.value;
+function extractFiles(zf, files, callback, tmpdir) {
   var dir = path.join(
     tmpdir,
     path.basename(files.shp, '.shp'),
@@ -168,7 +167,7 @@ function extractFiles(zf, shapefiles, callback, tmpdir) {
 
     q.await(function(err) {
       if (err) return callback(err);
-      callback(null, path.join(dir, sanitizeName(files.shp)));
+      callback(path.join(dir, sanitizeName(files.shp)));
     });
   });
 }
